@@ -1,0 +1,115 @@
+/* Global Styles Reset */
+:root {
+  /* Color Palette - Premium & Vibrant */
+  --primary-gold: hsl(45, 100%, 50%);
+  --primary-dark: hsl(220, 20%, 10%);
+  --accent-green: hsl(140, 60%, 45%);
+  --accent-red: hsl(0, 70%, 50%);
+  --text-light: hsl(0, 0%, 95%);
+  --text-muted: hsl(0, 0%, 70%);
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --shadow-premium: 0 20px 40px rgba(0, 0, 0, 0.4);
+  
+  --font-main: 'Outfit', sans-serif;
+  --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  color-scheme: dark; /* Keep existing color-scheme */
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--primary-dark);
+  color: var(--text-light);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* Typography Hub */
+h1, h2, h3 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary-gold), #fff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Layout Utilities */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.section-padding {
+  padding: 6rem 0;
+}
+
+/* Premium Buttons */
+.btn-primary {
+  background: var(--primary-gold);
+  color: var(--primary-dark);
+  padding: 1rem 2.5rem;
+  border-radius: 50px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-block;
+  transition: var(--transition-smooth);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(255, 215, 0, 0.3);
+}
+
+/* Glassmorphism Card */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 2rem;
+}
+
+/* Responsive Image Container */
+.img-wrapper {
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.img-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: var(--transition-smooth);
+}
+
+.img-wrapper:hover img {
+  transform: scale(1.05);
+}
+
+.new-tag {
+  background: var(--primary-gold);
+  color: var(--primary-dark);
+  padding: 0.2rem 1rem;
+  border-radius: 50px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  display: inline-block;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 10px rgba(255, 215, 0, 0.2);
+}
+

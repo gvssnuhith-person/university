@@ -1,0 +1,6 @@
+release
+release/
+.vercel
+node_modules
+dist
+main.cjs
