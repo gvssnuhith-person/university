@@ -1,0 +1,57 @@
+{
+  "userAccounts": {
+    "snuhith": {
+      "password": "9ee19bbd0a7029e500fe6871a9e572bd:69bce4147cd0120046f1bf24ac16663e057a8e884de62d04ac0da3b2d9cfd70ec60da451de87d5ffb73e21c0ae1fd278f31086a04806f72cba5c991d483ac6ee",
+      "role": "admin",
+      "name": "Snuhith"
+    },
+    "hk": {
+      "password": "bfc4bb8e7c0dc63fd5a79b24acb9d1ea:ef78cdff43dc31e3fddf41aefe97a00210ac487fb4c1571653141de0fb410d34a6d95551e19c7ac705f23984e5a9235ac2e606fd33cca8394d753ad1274d6c3c",
+      "role": "hod",
+      "name": "HK"
+    },
+    "anohu": {
+      "password": "b7d94c8d06c027a75119e4e9c109c2e2:9857de3a46f6a051461028f6af4ed09fcb3d792e06ccafa3f51a4c7bb20b2040875c20227907f3f329cfa0e027edfbf177d968847489b84e2ea6727104f1ee38",
+      "role": "faculty",
+      "name": "Anohu"
+    }
+  },
+  "crAccounts": {},
+  "studentsStore": {
+    "gvs": {
+      "name": "GVS (Student)",
+      "password": "7099b97714729c9e3793b8b9420ce218:7b9023e93549a1848881327aeaebac047138db490c8316e10a401406a40672d98bca742d8e57b6708dc82152ba6f14c67eaf076e03c4a15656e61dfc77454afe"
+    }
+  },
+  "facultyStore": {},
+  "posts": [
+    {
+      "id": 1774875467104,
+      "content": "Hello GVS community! This is a test post.",
+      "category": "Campus Life",
+      "isAnonymous": false,
+      "userId": "GVS (Student)_id",
+      "userName": "GVS (Student)",
+      "timestamp": "2026-03-30T12:57:47.105Z",
+      "likes": 0,
+      "comments": [],
+      "status": "approved"
+    }
+  ],
+  "attendanceLogs": [],
+  "attendanceStore": {},
+  "notifications": [
+    {
+      "id": 1,
+      "title": "Mid-term Exams Schedule",
+      "content": "Exams start from April 5th. Detailed schedule is on the notice board.",
+      "sender": "Admin",
+      "role": "hod",
+      "timestamp": "2026-03-30T12:47:02.685Z",
+      "attachment": null
+    }
+  ],
+  "knownStudents": [
+    "gvs"
+  ]
+}

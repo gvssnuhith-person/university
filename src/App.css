@@ -6,18 +6,20 @@
 
 :root {
   /* Color Palette - HSL for Better Harmony */
-  --primary: hsl(245, 82%, 67%);
-  --primary-glow: hsla(245, 82%, 67%, 0.3);
-  --secondary: hsl(270, 91%, 65%);
-  --accent: hsl(343, 91%, 58%);
+  --primary: hsl(190, 100%, 50%); /* Electric Cyan */
+  --primary-glow: hsla(190, 100%, 50%, 0.4);
+  --secondary: hsl(280, 100%, 65%); /* Neon Purple */
+  --secondary-glow: hsla(280, 100%, 65%, 0.3);
+  --accent: hsl(0, 100%, 60%); /* Security Red */
   
-  --bg-deep: hsl(222, 47%, 7%);
-  --bg-card: hsla(222, 47%, 12%, 0.65);
-  --bg-card-hover: hsla(222, 47%, 15%, 0.8);
+  --bg-deep: #020617;
+  --bg-card: hsla(222, 47%, 10%, 0.7);
+  --bg-card-hover: hsla(222, 47%, 12%, 0.85);
   
-  --text-main: hsl(210, 40%, 98%);
-  --text-muted: hsl(215, 25%, 72%);
-  --text-dim: hsl(215, 20%, 55%);
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --text-security: var(--primary);
   
   --border-glass: rgba(255, 255, 255, 0.08);
   --border-highlight: rgba(255, 255, 255, 0.15);
@@ -62,11 +64,23 @@ h1, h2, h3, .college-logo {
 .college-app::before {
   content: '';
   position: fixed;
-  top: -10%; left: -10%; right: -10%; bottom: -10%;
-  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  opacity: 0.03;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: 
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+    linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  background-size: 100% 2px, 3px 100%;
   pointer-events: none;
-  z-index: 1;
+  z-index: 9999;
+  opacity: 0.15;
+}
+
+.college-app::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+  z-index: 10;
 }
 
 /* Modern Navigation */
@@ -193,9 +207,10 @@ h1, h2, h3, .college-logo {
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-lg);
-  padding: 2rem;
+  padding: 2.5rem;
   margin-bottom: 3rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 64px rgba(0, 0, 0, 0.5);
+  border-top: 1px solid var(--border-highlight);
   animation: fadeInUp 0.8s 0.2s both;
 }
 
@@ -456,8 +471,10 @@ h1, h2, h3, .college-logo {
 }
 
 .login-card h1 {
-  font-size: 2.5rem;
-  margin-bottom: 0.75rem;
+  font-size: 2.8rem;
+  margin-bottom: 1rem;
+  letter-spacing: 2px;
+  text-shadow: 0 0 20px var(--primary-glow);
 }
 
 .login-card input {
@@ -465,17 +482,105 @@ h1, h2, h3, .college-logo {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-glass);
   padding: 1.15rem 1.5rem;
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   color: white;
-  font-size: 1rem;
-  margin-bottom: 1rem;
+  font-size: 1.05rem;
+  margin-bottom: 1.25rem;
   transition: var(--transition-smooth);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .login-card input:focus {
   background: rgba(255, 255, 255, 0.06);
   border-color: var(--primary);
   box-shadow: 0 0 0 4px var(--primary-glow);
+}
+
+/* HUB PAGE */
+.hub-page {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  padding: 2rem;
+}
+
+.hub-container {
+  z-index: 2;
+  max-width: 1000px;
+  width: 100%;
+  text-align: center;
+}
+
+.hub-header h1 {
+  font-size: 4rem;
+  margin-bottom: 0.5rem;
+}
+
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+  margin-top: 4rem;
+}
+
+.hub-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 3rem 2rem;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hub-card:hover {
+  transform: translateY(-15px) scale(1.02);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 15px 40px rgba(0, 255, 230, 0.2);
+}
+
+.hub-icon {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+}
+
+.hub-btn {
+  margin-top: 2rem;
+  padding: 1rem 2rem;
+  border-radius: 30px;
+  border: none;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.hub-btn.university-theme {
+  background: linear-gradient(135deg, #00f2fe, #4facfe);
+  color: #000;
+}
+
+.hub-btn.voices-theme {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+}
+
+.hub-footer {
+  margin-top: 5rem;
+  opacity: 0.5;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .hub-grid { grid-template-columns: 1fr; }
+  .hub-header h1 { font-size: 2.5rem; }
 }
 
 /* Animations */
@@ -609,38 +714,86 @@ h1, h2, h3, .college-logo {
   .nav-links button { padding: 0.5rem 0.8rem; font-size: 0.85rem; }
 }
 
-/* Google Sign-In Section Styles (Guided) */
-.google-signin-section {
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-glass);
-}
-
-.google-signin-section h3 {
-  color: var(--text-muted);
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.google-signin-container {
-  display: flex;
-  justify-content: center;
-  margin: 1rem 0;
-}
-
-.demo-note {
-  color: var(--text-dim);
-  font-size: 0.8rem;
-  margin-top: 0.5rem;
-}
-
-.loading {
+/* Security Dashboard & Badges */
+.security-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: hsla(180, 100%, 50%, 0.1);
+  border: 1px solid var(--primary);
   color: var(--primary);
-  font-size: 0.9rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   margin-top: 0.5rem;
+}
+
+.security-status {
+  background: rgba(0, 255, 255, 0.03);
+  border: 1px solid var(--primary-glow);
+  border-left: 4px solid var(--primary);
+  padding: 1.5rem;
+  margin: 2rem 0;
+  border-radius: 4px 16px 16px 4px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.05);
+}
+
+.security-status::before {
+  content: 'SECURE_LINK_ESTABLISHED';
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.6rem;
+  color: var(--primary);
+  opacity: 0.4;
+}
+
+.security-status h4 {
+  color: var(--primary);
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.security-line {
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-bottom: 0.2rem;
+}
+
+.encrypted-pulse {
+  width: 8px;
+  height: 8px;
+  background: var(--primary);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--primary);
+  display: inline-block;
+  margin-right: 8px;
+  animation: pulse-ring 2s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 255, 255, 0); }
+  100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(0, 255, 255, 0); }
+}
+
+.cyber-grid {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: 
+    linear-gradient(to right, rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
 }

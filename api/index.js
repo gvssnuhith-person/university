@@ -3,6 +3,9 @@ import cors from 'cors';
 import nodemailer from 'nodemailer';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+import fs from 'fs';
+import jwt from 'jsonwebtoken';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,6 +62,96 @@ const notifications = [
 ];
 
 // ─────────────────────────────────────────────
+// SECURITY & ENCRYPTION TOOLS
+// ─────────────────────────────────────────────
+const JWT_SECRET = process.env.JWT_SECRET || 'gvs-university-secret-2026';
+const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY || '506ad607730e70a3c26cb8e0787fa541506ad607730e70a3c26cb8e0787fa541', 'hex');
+
+// Hashing with scrypt (Secure alternative to SHA-256)
+const hashPassword = (password) => {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derivedKey = crypto.scryptSync(password, salt, 64);
+  return `${salt}:${derivedKey.toString('hex')}`;
+};
+
+const verifyPassword = (input, stored) => {
+  if (!stored || !stored.includes(':')) return false;
+  const [salt, key] = stored.split(':');
+  const derivedKey = crypto.scryptSync(input, salt, 64);
+  return derivedKey.toString('hex') === key;
+};
+
+// AES-256-GCM Data Encryption Service
+const encryptData = (text) => {
+  if (!text) return text;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+};
+
+const decryptData = (encryptedText) => {
+  if (!encryptedText || !encryptedText.includes(':')) return encryptedText;
+  try {
+    const [ivHex, authTagHex, encrypted] = encryptedText.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (err) {
+    return encryptedText;
+  }
+};
+
+// ─────────────────────────────────────────────
+// PERSISTENT FILE DATABASE
+// ─────────────────────────────────────────────
+const DB_FILE = path.join(__dirname, '..', 'database.json');
+
+const loadDb = () => {
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      Object.assign(userAccounts, data.userAccounts || {});
+      Object.assign(crAccounts, data.crAccounts || {});
+      Object.assign(studentsStore, data.studentsStore || {});
+      Object.assign(facultyStore, data.facultyStore || {});
+      Object.assign(attendanceStore, data.attendanceStore || {});
+      posts.length = 0; posts.push(...(data.posts || []));
+      attendanceLogs.length = 0; attendanceLogs.push(...(data.attendanceLogs || []));
+      notifications.length = 0; notifications.push(...(data.notifications || []));
+      knownStudents.clear(); (data.knownStudents || []).forEach(s => knownStudents.add(s));
+      return true;
+    }
+  } catch (err) { console.error('DB Load failed:', err); }
+  return false;
+};
+
+const saveDb = () => {
+  try {
+    const data = {
+      userAccounts,
+      crAccounts,
+      studentsStore,
+      facultyStore,
+      posts,
+      attendanceLogs,
+      attendanceStore,
+      notifications,
+      knownStudents: Array.from(knownStudents)
+    };
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+    return true;
+  } catch (err) { console.error('DB Save failed:', err); }
+  return false;
+};
+
+// ─────────────────────────────────────────────
 // SECURE AUTH STORE
 // Fixed accounts: hod, faculty
 // CRs are added dynamically by HOD with a password
@@ -72,9 +165,9 @@ const notifications = [
 // 5. student: View & Campus Voices
 
 let userAccounts = {
-  snuhith: { password: '123', role: 'admin',   name: 'Snuhith' },
-  hk:      { password: '0707', role: 'hod',     name: 'HK' },
-  anohu:   { password: '4321', role: 'faculty', name: 'Anohu' },
+  snuhith: { password: hashPassword('123'), role: 'admin',   name: 'Snuhith' },
+  hk:      { password: hashPassword('0707'), role: 'hod',     name: 'HK' },
+  anohu:   { password: hashPassword('4321'), role: 'faculty', name: 'Anohu' },
 };
 
 // Dynamic CRs promoted by HOD: { username: { password, name } }
@@ -91,7 +184,7 @@ const knownStudents = new Set();
 
 // Fixed Student Accounts (Database Simulation)
 const studentsStore = {
-  'gvs': { name: 'GVS (Student)', password: '123' }
+  'gvs': { name: 'GVS (Student)', password: hashPassword('123') }
 };
 
 const facultyStore = {};
@@ -121,18 +214,23 @@ app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
 
-  // Check fixed accounts (hod, faculty)
+  // Load latest data
+  loadDb();
+
+  // Check fixed accounts
   const fixed = userAccounts[username.toLowerCase()];
   if (fixed) {
-    if (fixed.password !== password) return res.status(401).json({ error: 'Incorrect password' });
-    return res.json({ token: `${fixed.role}-token`, user: { name: fixed.name, role: fixed.role } });
+    if (!verifyPassword(password, fixed.password)) return res.status(401).json({ error: 'Incorrect password' });
+    const token = jwt.sign({ username: username.toLowerCase(), role: fixed.role, name: fixed.name }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ token, user: { name: fixed.name, role: fixed.role } });
   }
 
-  // Check CR accounts (case-sensitive usernames set by HOD)
+  // Check CR accounts
   const cr = crAccounts[username];
   if (cr) {
-    if (cr.password !== password) return res.status(401).json({ error: 'Incorrect password for this account' });
-    return res.json({ token: 'cr-token', user: { name: username, role: 'cr' } });
+    if (!verifyPassword(password, cr.password)) return res.status(401).json({ error: 'Incorrect password' });
+    const token = jwt.sign({ username, role: 'cr', name: username }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ token, user: { name: username, role: 'cr' } });
   }
 
   // Enforce Google Sign-In for Faculty Google accounts
@@ -147,30 +245,37 @@ app.post('/api/auth/login', (req, res) => {
     if (student.provider === 'google') {
       return res.status(401).json({ error: 'Please use Google Sign-In for this account' });
     }
-    if (student.password !== password) return res.status(401).json({ error: 'Incorrect password' });
+    if (!verifyPassword(password, student.password)) return res.status(401).json({ error: 'Incorrect password' });
     knownStudents.add(username);
-    return res.json({ token: 'student-token', user: { name: student.name, role: 'student' } });
+    saveDb();
+    const token = jwt.sign({ username, role: 'student', name: student.name }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ token, user: { name: student.name, role: 'student' } });
   }
 
-  // Check facultyStore for traditionally signed-up faculty
-  const facultyMember = facultyStore[username];
-  if (facultyMember) {
-    if (facultyMember.password !== password) return res.status(401).json({ error: 'Incorrect password' });
-    return res.json({ token: 'faculty-token', user: { name: facultyMember.name, role: 'faculty' } });
+  // Check faculty signup store
+  const fac = facultyStore[username];
+  if (fac) {
+    if (!verifyPassword(password, fac.password)) return res.status(401).json({ error: 'Incorrect password' });
+    const token = jwt.sign({ username, role: 'faculty', name: fac.name }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ token, user: { name: fac.name, role: 'faculty' } });
   }
 
   if (pendingUsers[username]) {
-    // Auto-approve pending users as students
     studentsStore[username] = { ...pendingUsers[username] };
     delete pendingUsers[username];
     knownStudents.add(username);
-    return res.json({ token: 'student-token', user: { name: studentsStore[username].name, role: 'student' } });
+    saveDb();
+    const token = jwt.sign({ username, role: 'student', name: studentsStore[username].name }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ token, user: { name: studentsStore[username].name, role: 'student' } });
   }
 
-  // If not found anywhere, auto-create as student!
-  studentsStore[username] = { name: username, password: password, provider: 'traditional', email: username };
+  // Auto-create as student
+  const hashed = hashPassword(password);
+  studentsStore[username] = { name: username, password: hashed, provider: 'traditional', email: username };
   knownStudents.add(username);
-  return res.json({ token: 'student-token', user: { name: username, role: 'student' } });
+  saveDb();
+  const token = jwt.sign({ username, role: 'student', name: username }, JWT_SECRET, { expiresIn: '24h' });
+  return res.json({ token, user: { name: username, role: 'student' } });
 });
 
 // Universal Signup (Supports both student and faculty)
@@ -183,33 +288,40 @@ app.post('/api/auth/signup', (req, res) => {
   }
 
   const userRole = role || 'student';
+  const hashed = hashPassword(password);
 
   if (userRole === 'faculty') {
     facultyStore[username] = { 
       id: Date.now(), 
       name: name || username, 
-      password, 
+      password: hashed, 
       email: username, 
       dept: dept || 'General', 
       bio: bio || 'No bio provided.',
       icon: '👨‍🏫',
       provider: 'traditional' 
     };
-    // Also push to faculty array used for display
     faculty.push(facultyStore[username]);
   } else if (userRole === 'hod') {
     userAccounts[username.toLowerCase()] = { 
-      password, 
+      password: hashed, 
       role: 'hod', 
       name: name || username 
     };
   } else {
-    studentsStore[username] = { name: name || username, password, email: username, provider: 'traditional' };
+    studentsStore[username] = { 
+      name: name || username, 
+      password: hashed, 
+      provider: 'traditional', 
+      email: username 
+    };
     knownStudents.add(username);
   }
 
+  saveDb();
+  const token = jwt.sign({ username: username.toLowerCase(), role: userRole, name: name || username }, JWT_SECRET, { expiresIn: '24h' });
   return res.status(200).json({ 
-    token: `${userRole}-token`, 
+    token, 
     user: { name: name || username, role: userRole } 
   });
 });
@@ -221,14 +333,12 @@ app.post('/api/auth/google', async (req, res) => {
   try {
     let payload;
     if (access_token) {
-      // Fetch user info using the access token
       const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${access_token}` }
       });
       payload = await googleRes.json();
       if (!googleRes.ok) throw new Error('Invalid access token');
     } else if (credential) {
-      // Original ID token flow
       const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
       payload = await googleRes.json();
       if (!googleRes.ok) throw new Error('Invalid ID token');
@@ -237,18 +347,12 @@ app.post('/api/auth/google', async (req, res) => {
     }
 
     const { name, email, sub, picture } = payload;
-
-    // Determine role based on email domain
     let role = 'student';
     if (email && email.endsWith('@gvsuniversity.edu.in')) {
-      const isHod = email.startsWith('hod@');
-      role = isHod ? 'hod' : 'faculty';
+      role = email.startsWith('hod@') ? 'hod' : 'faculty';
     }
-
-    // Check if this Google account is a known CR
     if (crAccounts[email]) role = 'cr';
 
-    // Update stores
     if (role === 'student' && !studentsStore[email]) {
       studentsStore[email] = { name, email, password: 'oauth', provider: 'google', picture };
     }
@@ -257,9 +361,11 @@ app.post('/api/auth/google', async (req, res) => {
     }
 
     knownStudents.add(email);
+    saveDb();
     
+    const token = jwt.sign({ username: email, role, name, sub }, JWT_SECRET, { expiresIn: '7d' });
     return res.json({ 
-      token: `google-${sub}`, 
+      token, 
       user: { name: name || email.split('@')[0], role, email, picture } 
     });
   } catch (err) {
@@ -347,6 +453,7 @@ app.post('/api/attendance', (req, res) => {
     timestamp: new Date().toISOString()
   };
   attendanceLogs.push(newLog);
+  saveDb();
   res.status(201).json(newLog);
 });
 
@@ -356,6 +463,7 @@ app.delete('/api/attendance/:id', (req, res) => {
   const index = attendanceLogs.findIndex(log => log.id === parseInt(id));
   if (index !== -1) {
     attendanceLogs.splice(index, 1);
+    saveDb();
     return res.json({ message: 'Log deleted' });
   }
   res.status(404).json({ error: 'Log not found' });
@@ -380,40 +488,46 @@ app.delete('/api/notifications/:id', (req, res) => {
   const index = notifications.findIndex(n => n.id === parseInt(id));
   if (index !== -1) {
     notifications.splice(index, 1);
+    saveDb();
     return res.json({ message: 'Notification deleted' });
   }
   res.status(404).json({ error: 'Notification not found' });
 });
 
-// ─────────────────────────────────────────────
-// ROUTES: ADMIN MANAGEMENT (Faculty/Students)
-// ─────────────────────────────────────────────
-
-// DELETE Faculty (HOD only)
-app.delete('/api/faculty/:id', (req, res) => {
-  const { id } = req.params;
-  const index = faculty.findIndex(f => f.id === parseInt(id));
-  if (index !== -1) {
-    faculty.splice(index, 1);
-    return res.json({ message: 'Faculty deleted' });
-  }
-  res.status(404).json({ error: 'Faculty not found' });
+// GET All Users (Admin/HOD only)
+app.get('/api/admin/users', (req, res) => {
+  const users = [
+    ...Object.entries(userAccounts).map(([username, data]) => ({ username, name: data.name, role: data.role })),
+    ...Object.entries(studentsStore).map(([username, data]) => ({ username, name: data.name, role: 'student' })),
+    ...Object.entries(crAccounts).map(([username, data]) => ({ username, name: data.name || username, role: 'cr' })),
+    ...faculty.map(f => ({ id: f.id, username: f.email, name: f.name, role: 'faculty' }))
+  ];
+  res.json(users);
 });
 
-// DELETE Student Account (HOD only)
-app.delete('/api/students/:username', (req, res) => {
-  const { username } = req.params;
+// DELETE Any User (Admin only)
+app.delete('/api/admin/users/:role/:idOrUsername', (req, res) => {
+  const { role, idOrUsername } = req.params;
   let deleted = false;
-  if (studentsStore[username]) {
-    delete studentsStore[username];
-    deleted = true;
+
+  if (role === 'student') {
+    if (studentsStore[idOrUsername]) { delete studentsStore[idOrUsername]; deleted = true; }
+    if (knownStudents.has(idOrUsername)) { knownStudents.delete(idOrUsername); deleted = true; }
+  } else if (role === 'faculty') {
+    const idx = faculty.findIndex(f => f.id === parseInt(idOrUsername) || f.email === idOrUsername);
+    if (idx !== -1) { faculty.splice(idx, 1); deleted = true; }
+    if (facultyStore[idOrUsername]) { delete facultyStore[idOrUsername]; deleted = true; }
+  } else if (role === 'cr') {
+    if (crAccounts[idOrUsername]) { delete crAccounts[idOrUsername]; deleted = true; }
+  } else if (role === 'hod' || role === 'admin') {
+    if (userAccounts[idOrUsername.toLowerCase()]) { delete userAccounts[idOrUsername.toLowerCase()]; deleted = true; }
   }
-  if (knownStudents.has(username)) {
-    knownStudents.delete(username);
-    deleted = true;
+
+  if (deleted) {
+    saveDb();
+    return res.json({ message: 'User removed successfully' });
   }
-  if (deleted) return res.json({ message: 'Student deleted' });
-  res.status(404).json({ error: 'Student not found' });
+  res.status(404).json({ error: 'User not found' });
 });
 
 // GET System Statistics (HOD only)
@@ -437,7 +551,8 @@ app.post('/api/admin/add-staff', (req, res) => {
   const lowerUsername = username.toLowerCase();
   if (userAccounts[lowerUsername]) return res.status(400).json({ error: 'Username already taken' });
   
-  userAccounts[lowerUsername] = { password, role, name: name || username };
+  userAccounts[lowerUsername] = { password: hashPassword(password), role, name: name || username };
+  saveDb();
   res.json({ message: `${role.toUpperCase()} added successfully` });
 });
 
@@ -458,6 +573,7 @@ app.post('/api/notifications', (req, res) => {
     attachment: attachment || null
   };
   notifications.unshift(notif);
+  saveDb();
 
   // Email Notification to all students (Mocking a broadcast)
   // In a real app, you'd fetch all student emails
@@ -481,12 +597,13 @@ app.post('/api/faculty', (req, res) => {
   if (!name || !dept) return res.status(400).json({ error: 'Missing fields' });
   const newFaculty = { id: Date.now(), name, dept, bio, icon: icon || '👤' };
   faculty.push(newFaculty);
+  saveDb();
   res.status(201).json(newFaculty);
 });
 
 app.delete('/api/faculty/:id', (req, res) => {
   const index = faculty.findIndex(f => f.id === parseInt(req.params.id));
-  if (index !== -1) { faculty.splice(index, 1); return res.json({ success: true }); }
+  if (index !== -1) { faculty.splice(index, 1); saveDb(); return res.json({ success: true }); }
   res.status(404).json({ error: 'Not found' });
 });
 
@@ -510,6 +627,7 @@ app.post('/api/posts', (req, res) => {
     status: 'approved'
   };
   posts.unshift(post);
+  saveDb();
 
   // Direct Email Logic
   if (category === 'Faculty Feedback') {
@@ -550,13 +668,13 @@ app.get('/api/admin/posts', (req, res) => res.json(posts));
 
 app.post('/api/posts/:id/like', (req, res) => {
   const post = posts.find(p => p.id === parseInt(req.params.id));
-  if (post) { post.likes += 1; return res.json(post); }
+  if (post) { post.likes += 1; saveDb(); return res.json(post); }
   res.status(404).json({ error: 'Not found' });
 });
 
 app.delete('/api/admin/posts/:id', (req, res) => {
   const index = posts.findIndex(p => p.id === parseInt(req.params.id));
-  if (index !== -1) { posts.splice(index, 1); return res.json({ success: true }); }
+  if (index !== -1) { posts.splice(index, 1); saveDb(); return res.json({ success: true }); }
   res.status(404).json({ error: 'Not found' });
 });
 
@@ -574,7 +692,8 @@ app.post('/api/admin/promote', (req, res) => {
   const { username, role, password } = req.body;
   if (!username) return res.status(400).json({ error: 'Username required' });
   if (!password) return res.status(400).json({ error: 'Password required for CR account' });
-  crAccounts[username] = { password, role: role || 'cr' };
+  crAccounts[username] = { password: hashPassword(password), role: role || 'cr' };
+  saveDb();
   res.json({ success: true, message: `${username} promoted to CR` });
 });
 
@@ -582,6 +701,7 @@ app.post('/api/admin/demote/:username', (req, res) => {
   const uname = req.params.username;
   if (crAccounts[uname]) {
     delete crAccounts[uname];
+    saveDb();
     return res.json({ success: true, message: `Revoked CR from ${uname}` });
   }
   return res.status(404).json({ error: 'User not found in CR list' });
@@ -598,50 +718,19 @@ app.post('/api/admin/approve', (req, res) => {
     studentsStore[username] = user;
     delete pendingUsers[username];
     knownStudents.add(username);
+    saveDb();
   } else if (role === 'faculty') {
     facultyStore[username] = { name: user.name, password: user.password, department: 'General Faculty' };
     delete pendingUsers[username];
+    saveDb();
   } else {
     return res.status(400).json({ error: 'Invalid role' });
   }
   return res.json({ success: true, message: `Approved as ${role}` });
 });
 
-// ─────────────────────────────────────────────
-// ROUTES: ATTENDANCE
-// ─────────────────────────────────────────────
-app.get('/api/attendance', (req, res) => {
-  const { username, role } = req.query;
-  
-  // If faculty or HOD, return all attendance records + known students list
-  if (role === 'faculty' || role === 'hod') {
-    return res.json({
-      records: attendanceStore,
-      students: Array.from(knownStudents)
-    });
-  }
-  
-  // If student or CR, return only their own attendance
-  if (!username) return res.status(400).json({ error: 'Username required' });
-  const myAttendance = attendanceStore[username] || { weekly: 'N/A', monthly: 'N/A' };
-  return res.json({ records: { [username]: myAttendance } });
-});
+// Consolidated Attendance logic handled above
+// initialization
+loadDb();
 
-app.post('/api/attendance', (req, res) => {
-  const { username, weekly, monthly } = req.body;
-  if (!username) return res.status(400).json({ error: 'Username required' });
-  
-  attendanceStore[username] = {
-    weekly: weekly || '0%',
-    monthly: monthly || '0%',
-    lastUpdated: new Date().toISOString()
-  };
-  
-  // Also add to known students just in case
-  knownStudents.add(username);
-  
-  res.json({ success: true, record: attendanceStore[username] });
-});
-
-// Vercel handles static file serving via vercel.json, so we just export the app
 export default app;

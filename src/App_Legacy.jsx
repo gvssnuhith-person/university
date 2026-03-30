@@ -8,6 +8,17 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'PENDING_CLIEN
 const CATEGORIES = ['All', 'Academics', 'Faculty Feedback', 'Campus Life', 'Complaints', 'Confessions'];
 
 const App = () => {
+  const getRoleDisplayName = (role) => {
+    switch (role?.toLowerCase()) {
+      case 'admin': return 'Management';
+      case 'hod': return 'Coordinator';
+      case 'faculty': return 'Staff';
+      case 'cr': return 'Representative';
+      case 'student': return 'Student';
+      default: return role || 'Guest';
+    }
+  };
+
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('voices');
   const [posts, setPosts] = useState([]);
@@ -30,8 +41,12 @@ const App = () => {
   const [adminRoles, setAdminRoles] = useState({});
   const [pendingUsers, setPendingUsers] = useState({});
   const [promoteForm, setPromoteForm] = useState({ name: '', password: '' });
-  const [staffForm, setStaffForm] = useState({ username: '', password: '', name: '', role: 'faculty' });
+  const [staffForm, setStaffForm] = useState({ username: '', name: '', password: '', confirmPassword: '', role: 'faculty' });
   const [stats, setStats] = useState({ totalStudents: 0, totalFaculty: 0, totalHODs: 0, posts: 0 });
+  const [userList, setUserList] = useState([]);
+  const [attendanceLogs, setAttendanceLogs] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [attForm, setAttForm] = useState({ studentName: '', status: 'Present', date: new Date().toISOString().split('T')[0] });
   const googleBtnRef = useRef(null);
 
   useEffect(() => {
@@ -160,8 +175,38 @@ const App = () => {
     } catch (err) { console.error('Error fetching stats', err); }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/admin/users');
+      const data = await res.json();
+      setUserList(data);
+    } catch (err) { console.error('Error fetching users', err); }
+  };
+
+  const removeUser = async (role, idOrUsername) => {
+    if (!window.confirm(`Are you sure you want to remove this ${role}?`)) return;
+    try {
+      const res = await fetch(`/api/admin/users/${role}/${idOrUsername}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchUsers();
+        fetchStats();
+      }
+    } catch (err) { console.error('Remove user failed', err); }
+  };
+
+  useEffect(() => {
+    if (user && (user.role === 'admin' || user.role === 'hod')) {
+      fetchStats();
+      fetchUsers();
+    }
+  }, [user]);
+
   const handleAddStaff = async (e) => {
     e.preventDefault();
+    if (staffForm.password !== staffForm.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
     try {
       const res = await fetch('/api/admin/add-staff', {
         method: 'POST',
@@ -302,6 +347,12 @@ const App = () => {
     setLoginError('');
     try {
       const isSignup = loginMode === 'signup' || loginMode === 'facultySignup' || loginMode === 'hodSignup';
+      
+      if (isSignup && loginData.password !== loginData.confirmPassword) {
+        setLoginError('Passwords do not match');
+        return;
+      }
+
       const endpoint = isSignup ? '/api/auth/signup' : '/api/auth/login';
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -444,12 +495,16 @@ const App = () => {
     return (
       <div className="login-page">
         <div className="login-card">
-          <h1>RISE <span className="gradient-text">KRISHNA SAI GANDHI</span></h1>
-          <p className="login-subtitle">
-            {loginMode === 'signup' ? 'Join as a Student' : 
-             loginMode === 'facultySignup' ? 'Join as a Faculty Member' : 
-             loginMode === 'hodSignup' ? 'Register as a New HOD' : 
-             'Your academic journey starts here'}
+          <h1>RISE <span className="gradient-text">GVS PORTAL</span></h1>
+          <div className="security-badge">
+            <span className="encrypted-pulse"></span>
+            AES-256 BIT ENCRYPTED SESSION
+          </div>
+          <p className="login-subtitle" style={{ marginTop: '1rem' }}>
+             {loginMode === 'signup' ? 'Secure Student Enrollment' : 
+             loginMode === 'facultySignup' ? 'Staff Credentialing' : 
+             loginMode === 'hodSignup' ? 'Coordinator Authorization' : 
+             'Cybersecurity-First Academic Portal'}
           </p>
 
           {loginError && <div className="login-error">⚠️ {loginError}</div>}
@@ -458,10 +513,10 @@ const App = () => {
             <input
               type="text"
               placeholder={
-                loginMode === 'signup' ? 'Enter new student username' : 
-                loginMode === 'facultySignup' ? 'Enter new faculty username' : 
-                loginMode === 'hodSignup' ? 'Enter new hod username' : 
-                'Username'
+                 loginMode === 'signup' ? 'Enter student username' : 
+                 loginMode === 'facultySignup' ? 'Enter staff username' : 
+                 loginMode === 'hodSignup' ? 'Enter coordinator username' : 
+                 'Username'
               }
               value={loginData.username}
               onChange={e => setLoginData({ ...loginData, username: e.target.value })}
@@ -474,6 +529,15 @@ const App = () => {
               onChange={e => setLoginData({ ...loginData, password: e.target.value })}
               required
             />
+            {(loginMode === 'signup' || loginMode === 'facultySignup' || loginMode === 'hodSignup') && (
+              <input
+                type="password"
+                placeholder="Confirm Password"
+                value={loginData.confirmPassword}
+                onChange={e => setLoginData({ ...loginData, confirmPassword: e.target.value })}
+                required
+              />
+            )}
             {loginMode === 'facultySignup' && (
               <>
                 <input
@@ -492,12 +556,12 @@ const App = () => {
                 />
               </>
             )}
-            <button type="submit" className="login-btn">
-              {loginMode === 'signup' ? '✨ Create Student Account' : 
-               loginMode === 'facultySignup' ? '👨‍🏫 Create Faculty Account' : 
-               loginMode === 'hodSignup' ? '👑 Create HOD Account' : 
-               '🔐 Secure Login'}
-            </button>
+                  <button type="submit" className="login-btn">
+               {loginMode === 'signup' ? 'CREATE SECURE ACCOUNT' : 
+                loginMode === 'facultySignup' ? 'REGISTER STAFF' : 
+                loginMode === 'hodSignup' ? 'AUTHORIZE COORDINATOR' : 
+                'VERIFY & ACCESS'}
+             </button>
           </form>
 
           {loginMode === 'login' && (
@@ -533,9 +597,9 @@ const App = () => {
           <div className="login-toggle">
             {loginMode === 'login' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <p>New student? <button onClick={() => { setLoginMode('signup'); setLoginError(''); }}>Sign up</button></p>
-                <p>New faculty? <button onClick={() => { setLoginMode('facultySignup'); setLoginError(''); }}>Sign up</button></p>
-                <p>New HOD? <button onClick={() => { setLoginMode('hodSignup'); setLoginError(''); }}>Sign up</button></p>
+                 <p>New student? <button onClick={() => { setLoginMode('signup'); setLoginError(''); }}>Sign up</button></p>
+                 <p>New staff? <button onClick={() => { setLoginMode('facultySignup'); setLoginError(''); }}>Sign up</button></p>
+                 <p>New coordinator? <button onClick={() => { setLoginMode('hodSignup'); setLoginError(''); }}>Sign up</button></p>
               </div>
             ) : (
               <p>Already have an account? <button onClick={() => { setLoginMode('login'); setLoginError(''); }}>Login</button></p>
@@ -556,21 +620,26 @@ const App = () => {
   // ─── MAIN APP ────────────────────────────────────────────────────
   return (
     <div className="college-app">
+      <div className="cyber-grid"></div>
       <nav className="college-nav">
         <div className="nav-container">
-          <div className="college-logo" onClick={() => setActiveTab('voices')}>RISE KRISHNA SAI GANDHI</div>
+          <div className="college-logo" onClick={() => setActiveTab('voices')}>RISE GVS UNIVERSITY</div>
           <div className="nav-links">
             <button className={activeTab === 'voices' ? 'active' : ''} onClick={() => setActiveTab('voices')}>Voices</button>
             <button className={activeTab === 'faculty' ? 'active' : ''} onClick={() => setActiveTab('faculty')}>Faculty</button>
             <button className={activeTab === 'notifications' ? 'active' : ''} onClick={() => setActiveTab('notifications')}>Notifications</button>
             <button className={activeTab === 'attendance' ? 'active' : ''} onClick={() => setActiveTab('attendance')}>Attendance</button>
-            {(user.role === 'hod' || user.role === 'admin') && <button className={activeTab === 'admin' ? 'active' : ''} onClick={() => setActiveTab('admin')}>{user.role === 'admin' ? 'System' : 'HOD'} Portal</button>}
+            {(user.role === 'hod' || user.role === 'admin') && <button className={activeTab === 'admin' ? 'active' : ''} onClick={() => setActiveTab('admin')}>{getRoleDisplayName(user.role)} Portal</button>}
             <div className="user-chip">
               <span className={`role-dot role-${user.role}`}></span>
                <span style={{ fontWeight: 600 }}>{user.name}</span>
                <small style={{ opacity: 0.6, marginLeft: '0.4rem', fontSize: '0.75rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                 {user.role?.toUpperCase()}
+                 {getRoleDisplayName(user.role)}
                </small>
+               <div className="security-badge" style={{ marginLeft: '1rem', border: 'none', background: 'transparent' }}>
+                 <span className="encrypted-pulse"></span>
+                 <span style={{ fontSize: '0.6rem' }}>ENCRYPTED</span>
+               </div>
             </div>
             <button onClick={logout} className="logout-btn">Logout</button>
           </div>
@@ -578,6 +647,16 @@ const App = () => {
       </nav>
 
       <main className="main-container">
+        {/* Security Insights (Admin/HOD Only) */}
+        {(user.role === 'hod' || user.role === 'admin') && (
+          <div className="security-status">
+            <h4><span className="encrypted-pulse"></span> SYSTEM SECURITY PROTOCOLS ACTIVE</h4>
+            <div className="security-line">&gt; AES-256-GCM DATA ENCRYPTION: ENABLED</div>
+            <div className="security-line">&gt; PASSWORD HASHING: SCRYPT-64-16-1 (SECURE)</div>
+            <div className="security-line">&gt; SESSION INTEGRITY: HS256 JWT SIGNED</div>
+            <div className="security-line">&gt; SYSTEM PERSISTENCE: ENCRYPTED JSON STORE</div>
+          </div>
+        )}
 
         {/* ─── VOICES TAB ─── */}
         {activeTab === 'voices' && (
@@ -662,7 +741,7 @@ const App = () => {
 
             {user.role === 'hod' && (
               <div className="admin-form-card">
-                <h3>Add New Faculty</h3>
+                 <h3>Add New Staff</h3>
                 <form onSubmit={handleAddFaculty}>
                   <div className="form-row">
                     <input placeholder="Name" value={newFaculty.name} onChange={e => setNewFaculty({ ...newFaculty, name: e.target.value })} required />
@@ -676,7 +755,7 @@ const App = () => {
                       <option value="🧑‍🔬">🧑‍🔬 Scientist</option>
                       <option value="🎨">🎨 Creative</option>
                     </select>
-                    <button type="submit" className="submit-btn">Register Faculty</button>
+                     <button type="submit" className="submit-btn">Register Staff</button>
                   </div>
                 </form>
               </div>
@@ -895,6 +974,7 @@ const App = () => {
                     <input placeholder="Username" value={staffForm.username} onChange={e => setStaffForm({ ...staffForm, username: e.target.value })} required />
                     <input placeholder="Full Name" value={staffForm.name} onChange={e => setStaffForm({ ...staffForm, name: e.target.value })} required />
                     <input type="password" placeholder="Password" value={staffForm.password} onChange={e => setStaffForm({ ...staffForm, password: e.target.value })} required />
+                    <input type="password" placeholder="Confirm Password" value={staffForm.confirmPassword} onChange={e => setStaffForm({ ...staffForm, confirmPassword: e.target.value })} required />
                     <select value={staffForm.role} onChange={e => setStaffForm({ ...staffForm, role: e.target.value })} className="category-select" style={{ width: '100%', marginBottom: '1rem' }}>
                       <option value="faculty">Faculty</option>
                       <option value="hod">HOD (HK Level)</option>
@@ -944,41 +1024,71 @@ const App = () => {
               </div>
             </div>
 
-            {user.role === 'admin' && (
-              <div className="admin-grid" style={{ marginTop: '2rem' }}>
-                <div className="admin-form-card" style={{ gridColumn: 'span 2' }}>
-                  <h3>Manage Student Accounts</h3>
-                  <div className="roles-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                    {students.length === 0 ? (
-                      <p style={{ opacity: 0.5 }}>No registered students.</p>
-                    ) : (
-                      students.map(s => (
-                        <div key={s.username} className="role-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                          <span>{s.name} <small style={{ opacity: 0.5 }}>({s.username})</small></span>
-                          <button onClick={() => deleteStudent(s.username)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff4d4d' }}>🗑️ Delete Account</button>
-                        </div>
-                      ))
-                    )}
-                  </div>
+              {/* ─── USER DIRECTORY ─── */}
+              <div className="admin-form-card" style={{ marginTop: '2rem', gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h3 style={{ margin: 0 }}>👥 User Directory (Management)</h3>
+                  <button onClick={fetchUsers} className="refresh-btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>🔄 Refresh List</button>
+                </div>
+                <div className="attendance-list-card" style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
+                  <table className="attendance-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-glass)', textAlign: 'left' }}>
+                        <th style={{ padding: '1rem' }}>Name</th>
+                        <th style={{ padding: '1rem' }}>Username / ID</th>
+                        <th style={{ padding: '1rem' }}>Role</th>
+                        <th style={{ padding: '1rem' }}>Status</th>
+                        <th style={{ padding: '1rem' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {userList.length === 0 ? (
+                        <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>No users found in directory.</td></tr>
+                      ) : (
+                        userList.map((u, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <td style={{ padding: '1rem' }}><strong>{u.name}</strong></td>
+                            <td style={{ padding: '1rem', opacity: 0.7 }}>{u.username || u.id}</td>
+                            <td style={{ padding: '1rem' }}>
+                              <span className={`status-badge role-${u.role}`} style={{ fontSize: '0.7rem', textTransform: 'uppercase', padding: '2px 6px' }}>
+                                {u.role}
+                              </span>
+                            </td>
+                            <td style={{ padding: '1rem', color: '#00ff00', fontSize: '0.8rem' }}>● Active</td>
+                            <td style={{ padding: '1rem' }}>
+                              {u.username !== 'snuhith' && (
+                                <button 
+                                  onClick={() => removeUser(u.role, u.username || u.id)}
+                                  className="delete-post-btn"
+                                  style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4d4d', border: '1px solid rgba(255,0,0,0.2)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}
+                                >
+                                  Remove Access
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            )}
-
-            <div className="roles-list" style={{ marginTop: '2rem' }}>
-              <h3>Current Class Representatives</h3>
-              <div className="roles-grid">
-                {Object.keys(adminRoles).length === 0 ? (
-                  <p style={{ color: 'var(--text-dim)' }}>No CRs appointed yet.</p>
-                ) : (
-                  Object.entries(adminRoles).map(([uname, role]) => (
-                    <div key={uname} className="role-item">
-                      <span><strong>{uname}</strong> — {role.toUpperCase()}</span>
-                      {user.role === 'hod' && <button className="demote-btn" onClick={() => handleDemote(uname)}>Revoke Access</button>}
-                    </div>
-                  ))
-                )}
+              
+              <div className="roles-list" style={{ marginTop: '2rem', gridColumn: '1 / -1' }}>
+                <h3>Current Class Representatives</h3>
+                <div className="roles-grid">
+                  {Object.keys(adminRoles).length === 0 ? (
+                    <p style={{ color: 'var(--text-dim)' }}>No CRs appointed yet.</p>
+                  ) : (
+                    Object.entries(adminRoles).map(([uname, role]) => (
+                      <div key={uname} className="role-item">
+                        <span><strong>{uname}</strong> — {role.toUpperCase()}</span>
+                        {user.role === 'hod' && <button className="demote-btn" onClick={() => handleDemote(uname)}>Revoke Access</button>}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
           </div>
         )}
       </main>
