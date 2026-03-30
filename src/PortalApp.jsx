@@ -219,11 +219,11 @@ const UniversityApp = () => {
               </div>
             )}
             <div className="notif-list">
-              {notifications.map(n => (
-                <div key={n.id} className="notif-card">
-                  <h3>{n.title}</h3>
-                  <p>{n.content}</p>
-                  <div className="notif-footer">By {n.sender} • {new Date(n.timestamp).toLocaleDateString()}</div>
+              {notifications.map(notif => (
+                <div key={notif.id} className="notif-card">
+                  <h3>{notif.title}</h3>
+                  <p>{notif.content}</p>
+                  <div className="notif-footer">By {notif.sender} • {new Date(notif.timestamp).toLocaleDateString()}</div>
                 </div>
               ))}
             </div>
@@ -272,12 +272,12 @@ const UniversityApp = () => {
           <div className="faculty-section">
             <h1>University <span className="gradient-text">Faculty</span></h1>
             <div className="faculty-grid">
-              {faculty.map(f => (
-                <div key={f.id} className="faculty-card">
-                  <div className="fac-icon">{f.icon}</div>
-                  <h3>{f.name}</h3>
-                  <div className="fac-dept">{f.dept}</div>
-                  <p>{f.bio}</p>
+              {faculty.map(fac => (
+                <div key={fac.id} className="faculty-card">
+                  <div className="fac-icon">{fac.icon}</div>
+                  <h3>{fac.name}</h3>
+                  <div className="fac-dept">{fac.dept}</div>
+                  <p>{fac.bio}</p>
                 </div>
               ))}
             </div>

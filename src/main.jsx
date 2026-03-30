@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import VoicesApp from './VoicesApp.jsx'
-import UniversityApp from './UniversityApp.jsx'
+import UniversityApp from './PortalApp.jsx'
 import Hub from './Hub.jsx'
 import './index.css'
 
