@@ -233,7 +233,7 @@ const PortalApp = () => {
                  <h3>System Statistics</h3>
                  <p>Students: {stats.totalStudents}</p>
                  <p>Faculty: {stats.totalFaculty}</p>
-                 <button onClick={fetchStats} className="submit-btn">Sync Data</button>
+                 <button onClick={() => fetch('/api/admin/stats').then(r => r.json()).then(setStats)} className="submit-btn">Sync Data</button>
                </div>
              </div>
            </div>
@@ -246,4 +246,4 @@ const PortalApp = () => {
   );
 };
 
-export default UniversityApp;
+export default PortalApp;
