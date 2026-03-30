@@ -4,7 +4,7 @@ import './App.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'PENDING_CLIENT_ID';
 
-const UniversityApp = () => {
+const PortalApp = () => {
   const getRoleDisplayName = (role) => {
     switch (role?.toLowerCase()) {
       case 'admin': return 'Management';
@@ -21,51 +21,38 @@ const UniversityApp = () => {
   const [faculty, setFaculty] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
-  const [loginMode, setLoginMode] = useState('login'); 
   const [loginError, setLoginError] = useState('');
-  const [targetedFacultyId, setTargetedFacultyId] = useState('');
-  const [newFaculty, setNewFaculty] = useState({ name: '', dept: '', bio: '', icon: '👨‍🏫' });
-  const [notifForm, setNotifForm] = useState({ title: '', content: '' });
-  const [notifFile, setNotifFile] = useState(null); 
-  const [adminRoles, setAdminRoles] = useState({});
-  const [pendingUsers, setPendingUsers] = useState({});
-  const [promoteForm, setPromoteForm] = useState({ name: '', password: '' });
-  const [staffForm, setStaffForm] = useState({ username: '', name: '', password: '', confirmPassword: '', role: 'faculty' });
-  const [stats, setStats] = useState({ totalStudents: 0, totalFaculty: 0, totalHODs: 0, posts: 0 });
-  const [userList, setUserList] = useState([]);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
   const [students, setStudents] = useState([]);
   const [attForm, setAttForm] = useState({ studentName: '', status: 'Present', date: new Date().toISOString().split('T')[0] });
+  const [notifForm, setNotifForm] = useState({ title: '', content: '' });
+  const [stats, setStats] = useState({ totalStudents: 0, totalFaculty: 0, totalHODs: 0, posts: 0 });
 
+  // Unified Data Loader
   useEffect(() => {
-    if (user) {
-      fetchFaculty();
-      fetchNotifications();
-      fetchAttendance();
-      if (user.role === 'hod' || user.role === 'faculty') fetchStudents();
-      if (user.role === 'hod' || user.role === 'admin') {
-        fetchRoles();
-        fetchPending();
-        fetchStats();
-        fetchUsers();
-      }
+    if (!user) return;
+
+    // Load Faculty
+    fetch('/api/faculty').then(r => r.json()).then(setFaculty);
+    
+    // Load Notifications
+    fetch('/api/notifications').then(r => r.json()).then(setNotifications);
+
+    // Load Attendance
+    const attUrl = `/api/attendance?username=${encodeURIComponent(user.name)}&role=${encodeURIComponent(user.role)}`;
+    fetch(attUrl).then(r => r.json()).then(data => {
+      const logs = data?.records ? Object.values(data.records) : (Array.isArray(data) ? data : []);
+      setAttendanceLogs(logs);
+    });
+
+    if (user.role === 'hod' || user.role === 'faculty') {
+      fetch('/api/students').then(r => r.json()).then(setStudents);
+    }
+
+    if (user.role === 'hod' || user.role === 'admin') {
+      fetch('/api/admin/stats').then(r => r.json()).then(setStats);
     }
   }, [user]);
-
-  const handleGoogleSignIn = async (credentialResponse) => {
-    try {
-      const res = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: credentialResponse.credential }) 
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        localStorage.setItem('user', JSON.stringify(data.user));
-        setUser(data.user);
-      }
-    } catch (err) { console.error(err); }
-  };
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -79,61 +66,12 @@ const UniversityApp = () => {
     setUser(null);
   };
 
-  const fetchRoles = async () => {
-    const res = await fetch('/api/admin/roles');
-    const data = await res.json();
-    setAdminRoles(data);
-  };
-
-  const fetchPending = async () => {
-    const res = await fetch('/api/admin/pending');
-    const data = await res.json();
-    setPendingUsers(data);
-  };
-
-  const fetchAttendance = async () => {
-    const res = await fetch(`/api/attendance?username=${user.name}&role=${user.role}`);
-    const data = await res.json();
-    setAttendanceLogs(data?.records ? Object.values(data.records) : (Array.isArray(data) ? data : []));
-  };
-
-  const fetchStudents = async () => {
-    const res = await fetch('/api/students');
-    const data = await res.json();
-    setStudents(data);
-  };
-
-  const fetchStats = async () => {
-    const res = await fetch('/api/admin/stats');
-    const data = await res.json();
-    setStats(data);
-  };
-
-  const fetchUsers = async () => {
-    const res = await fetch('/api/admin/users');
-    const data = await res.json();
-    setUserList(data);
-  };
-
-  const fetchFaculty = async () => {
-    const res = await fetch('/api/faculty');
-    const data = await res.json();
-    setFaculty(data);
-  };
-
-  const fetchNotifications = async () => {
-    const res = await fetch('/api/notifications');
-    const data = await res.json();
-    setNotifications(data);
-  };
-
   const handleLogin = async (e) => {
     e.preventDefault();
-    const endpoint = loginMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
-    const res = await fetch(endpoint, {
+    const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...loginData, name: loginData.username, role: loginMode === 'signup' ? 'student' : undefined })
+      body: JSON.stringify({ ...loginData, name: loginData.username })
     });
     const data = await res.json();
     if (res.ok && data.user) setUser(data.user);
@@ -149,7 +87,10 @@ const UniversityApp = () => {
     });
     if (res.ok) {
       setAttForm({ ...attForm, studentName: '' });
-      fetchAttendance();
+      // Refresh
+      fetch(`/api/attendance?username=${user.name}&role=${user.role}`).then(r => r.json()).then(d => {
+        setAttendanceLogs(d?.records ? Object.values(d.records) : (Array.isArray(d) ? d : []));
+      });
     }
   };
 
@@ -162,7 +103,7 @@ const UniversityApp = () => {
     });
     if (res.ok) {
       setNotifForm({ title: '', content: '' });
-      fetchNotifications();
+      fetch('/api/notifications').then(r => r.json()).then(setNotifications);
     }
   };
 

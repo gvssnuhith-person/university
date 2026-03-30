@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import VoicesApp from './VoicesApp.jsx'
-import UniversityApp from './PortalApp.jsx'
+import PortalApp from './PortalApp.jsx'
 import Hub from './Hub.jsx'
 import './index.css'
 
@@ -12,15 +12,15 @@ const AppSelector = () => {
   
   // URL Path-based detection (for local dev)
   if (pathname.startsWith('/voices')) return <VoicesApp />;
-  if (pathname.startsWith('/university') || pathname.startsWith('/portal')) return <UniversityApp />;
+  if (pathname.startsWith('/university') || pathname.startsWith('/portal')) return <PortalApp />;
 
   // Hostname-based detection (Automatic for Vercel)
   if (hostname.includes('voices')) return <VoicesApp />;
-  if (hostname.includes('university') || hostname.includes('portal')) return <UniversityApp />;
+  if (hostname.includes('university') || hostname.includes('portal')) return <PortalApp />;
   
   // Env-based detection (Manual override)
   if (appType === 'voices') return <VoicesApp />;
-  if (appType === 'university') return <UniversityApp />;
+  if (appType === 'university') return <PortalApp />;
   
   // Default to Hub landing page for combined access
   return <Hub />;
