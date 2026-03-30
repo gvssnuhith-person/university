@@ -6,10 +6,10 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'PENDING_CLIEN
 
 // Role cards for the selection screen
 const ROLE_OPTIONS = [
-  { id: 'student',    label: 'Student',     icon: '🎓', desc: 'View announcements & attendance' },
-  { id: 'faculty',    label: 'Staff',        icon: '📚', desc: 'Mark & view attendance' },
-  { id: 'hod',        label: 'Coordinator',  icon: '🧑‍💼', desc: 'Manage attendance & announcements' },
-  { id: 'admin',      label: 'Management',   icon: '🔐', desc: 'Full access & administration' },
+  { id: 'student', label: 'Student',  icon: '🎓', desc: 'View announcements & attendance' },
+  { id: 'faculty', label: 'Faculty',  icon: '📚', desc: 'Mark & view attendance' },
+  { id: 'hod',     label: 'HOD',      icon: '🧑‍💼', desc: 'Manage attendance & announcements' },
+  { id: 'admin',   label: 'Admin',    icon: '🔐', desc: 'Full access & administration' },
 ];
 
 const GvsAcademicPortal = () => {

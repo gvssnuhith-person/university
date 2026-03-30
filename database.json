@@ -38,7 +38,24 @@
       "status": "approved"
     }
   ],
-  "attendanceLogs": [],
+  "attendanceLogs": [
+    {
+      "id": 1774905848834,
+      "studentName": "gvs",
+      "status": "Present",
+      "date": "2026-03-30",
+      "markedBy": "Snuhith",
+      "timestamp": "2026-03-30T21:24:08.834Z"
+    },
+    {
+      "id": 1774905866216,
+      "studentName": "gvs",
+      "status": "Present",
+      "date": "2026-03-30",
+      "markedBy": "Snuhith",
+      "timestamp": "2026-03-30T21:24:26.216Z"
+    }
+  ],
   "attendanceStore": {},
   "notifications": [
     {

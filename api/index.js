@@ -164,10 +164,15 @@ const saveDb = () => {
 // 4. cr: Post Notifications
 // 5. student: View & Campus Voices
 
+// Password conventions:
+//   Student  → name@123          e.g. gvs@123
+//   Faculty  → name@0707         e.g. anohu@0707
+//   HOD      → hod@name132132    e.g. hod@hk132132
+//   Admin    → name (same)       e.g. snuhith
 let userAccounts = {
-  snuhith: { password: hashPassword('123'), role: 'admin',   name: 'Snuhith' },
-  hk:      { password: hashPassword('0707'), role: 'hod',     name: 'HK' },
-  anohu:   { password: hashPassword('4321'), role: 'faculty', name: 'Anohu' },
+  snuhith: { password: hashPassword('snuhith'),      role: 'admin',   name: 'Snuhith' },
+  hk:      { password: hashPassword('hod@hk132132'), role: 'hod',     name: 'HK' },
+  anohu:   { password: hashPassword('anohu@0707'),   role: 'faculty', name: 'Anohu' },
 };
 
 // Dynamic CRs promoted by HOD: { username: { password, name } }
@@ -182,9 +187,9 @@ const attendanceStore = {};
 // Keep track of student usernames that have logged in so faculty can select them
 const knownStudents = new Set();
 
-// Fixed Student Accounts (Database Simulation)
+// Fixed Student Accounts
 const studentsStore = {
-  'gvs': { name: 'GVS (Student)', password: hashPassword('123') }
+  'gvs': { name: 'GVS', password: hashPassword('gvs@123') }
 };
 
 const facultyStore = {};
@@ -269,13 +274,13 @@ app.post('/api/auth/login', (req, res) => {
     return res.json({ token, user: { name: studentsStore[username].name, role: 'student' } });
   }
 
-  // Auto-create as student
+  // Auto-create as student (password must follow name@123 pattern for self-registration)
   const hashed = hashPassword(password);
   studentsStore[username] = { name: username, password: hashed, provider: 'traditional', email: username };
   knownStudents.add(username);
   saveDb();
   const token = jwt.sign({ username, role: 'student', name: username }, JWT_SECRET, { expiresIn: '24h' });
-  return res.json({ token, user: { name: username, role: 'student' } });
+  return res.json({ token, user: { name: username, role: 'student' }, hint: 'Auto-registered as Student. Default password: name@123' });
 });
 
 // Universal Signup (Supports both student and faculty)
